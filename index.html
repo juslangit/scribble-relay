@@ -1,0 +1,1376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#fff8ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="Scribble Relay — a pass-the-device drawing party game. Write, draw, guess, and watch the message fall apart.">
+<title>Scribble Relay</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fff8ec;
+    --dots: #eadbc0;
+    --ink: #1f2440;
+    --muted: #6b6f86;
+    --coral: #ff5a5f;
+    --sun: #ffd23f;
+    --teal: #2ec4b6;
+    --sky: #4d96ff;
+    --card: #ffffff;
+    --shadow: 4px 4px 0 var(--ink);
+    --hand: "Gochi Hand", "Comic Sans MS", "Chalkboard SE", cursive;
+    --body: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --app-h: 100dvh;
+    --app-top: 0px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--paper) radial-gradient(var(--dots) 1.3px, transparent 1.5px) 0 0 / 24px 24px;
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 18px;
+    font-weight: 600;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1, h2, h3 { margin: 0; line-height: 1.05; }
+  p { margin: 0; }
+
+  /* ---------- screens ---------- */
+  .screen {
+    position: fixed;
+    left: 0; right: 0;
+    top: var(--app-top);
+    height: var(--app-h);
+    display: flex;
+    flex-direction: column;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .wrap { width: 100%; max-width: 720px; margin: auto; }
+  .enter { animation: enter .28s cubic-bezier(.2, .9, .3, 1.2); }
+  @keyframes enter { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    font: inherit;
+    font-weight: 900;
+    font-size: 1.3rem;
+    color: var(--ink);
+    background: var(--card);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 12px 22px;
+    min-height: 60px;
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform .07s, box-shadow .07s, opacity .2s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+  .btn:disabled { opacity: .4; pointer-events: none; }
+  .btn.primary { background: var(--coral); color: #fff; }
+  .btn.sun { background: var(--sun); }
+  .btn.teal { background: var(--teal); }
+  .btn.block { width: 100%; }
+  .btn.small { font-size: 1.05rem; min-height: 48px; padding: 8px 16px; border-radius: 14px; }
+  .btn:focus-visible, .seg button:focus-visible, .tool:focus-visible, .swatch:focus-visible {
+    outline: 3px solid var(--sky); outline-offset: 3px;
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > .btn { flex: 1 1 180px; }
+
+  .panel {
+    background: var(--card);
+    border: 3px solid var(--ink);
+    border-radius: 22px;
+    box-shadow: 6px 6px 0 var(--ink);
+    padding: 22px;
+  }
+  .label {
+    font-weight: 900; font-size: .85rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  }
+  input[type=text] {
+    font: inherit;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--ink);
+    width: 100%;
+    min-width: 0;
+    padding: 14px 16px;
+    border: 3px solid var(--ink);
+    border-radius: 14px;
+    background: #fff;
+    outline: none;
+  }
+  input[type=text]:focus { border-color: var(--sky); box-shadow: 0 0 0 4px rgba(77, 150, 255, .25); }
+  input::placeholder { color: #a9abbb; }
+
+  .avatar {
+    flex: none;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 3px solid var(--ink);
+    display: grid; place-items: center;
+    color: #fff; font-weight: 900; font-size: 1.1rem;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, .25);
+  }
+
+  /* ---------- home ---------- */
+  .logo { text-align: center; margin-bottom: 26px; }
+  .logo h1 {
+    font-family: var(--hand);
+    font-weight: 400;
+    font-size: clamp(3.6rem, 16vw, 6.5rem);
+    letter-spacing: .01em;
+    line-height: .9;
+  }
+  .logo h1 span { display: inline-block; }
+  .logo h1 .s1 { color: var(--coral); transform: rotate(-4deg); }
+  .logo h1 .s2 { color: var(--sky); transform: rotate(3deg); }
+  .logo svg { width: min(360px, 80%); height: auto; display: block; margin: 4px auto 0; }
+  .tagline {
+    display: inline-block;
+    margin-top: 14px;
+    background: var(--sun);
+    border: 3px solid var(--ink);
+    padding: 6px 16px;
+    border-radius: 10px;
+    transform: rotate(-2deg);
+    font-weight: 900;
+    font-size: 1.1rem;
+  }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 26px 0; }
+  .step {
+    background: var(--card);
+    border: 3px solid var(--ink);
+    border-radius: 16px;
+    padding: 12px 8px;
+    text-align: center;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .step:nth-child(odd) { transform: rotate(-1.5deg); }
+  .step:nth-child(even) { transform: rotate(1.5deg); }
+  .step b { display: block; font-size: 2rem; line-height: 1.2; }
+  .step span { font-weight: 900; font-size: 1.05rem; }
+  .step small { display: block; color: var(--muted); font-size: .8rem; line-height: 1.25; margin-top: 2px; }
+  .home-note { text-align: center; color: var(--muted); margin-top: 18px; font-size: 1rem; }
+  @media (max-width: 520px) {
+    .steps { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ---------- setup ---------- */
+  .setup h2, .write h2, .reveal-intro h2 { font-family: var(--hand); font-weight: 400; font-size: clamp(2.4rem, 9vw, 3.4rem); }
+  .setup-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .player-list { display: grid; gap: 10px; margin: 12px 0; }
+  .player-row { display: flex; align-items: center; gap: 10px; }
+  .icon-btn {
+    flex: none;
+    width: 48px; height: 48px;
+    border: 3px solid var(--ink);
+    border-radius: 12px;
+    background: #fff;
+    font: inherit; font-weight: 900; font-size: 1.1rem; color: var(--ink);
+    cursor: pointer; touch-action: manipulation;
+  }
+  .icon-btn:active { background: #ffe1e1; }
+  .settings { display: grid; gap: 16px; margin-top: 22px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .seg button {
+    font: inherit; font-weight: 900; font-size: 1.05rem;
+    flex: 1 1 auto;
+    min-width: 64px; min-height: 48px;
+    border: 3px solid var(--ink); border-radius: 12px;
+    background: #fff; color: var(--ink);
+    cursor: pointer; touch-action: manipulation;
+  }
+  .seg button[aria-pressed=true] { background: var(--ink); color: #fff; }
+  .hint { color: var(--muted); font-size: .95rem; margin-top: 6px; }
+  .setup-foot { margin-top: 22px; display: grid; gap: 10px; }
+
+  /* ---------- pass ---------- */
+  .pass { text-align: center; }
+  .pass .avatar { width: 110px; height: 110px; font-size: 3rem; margin: 0 auto 14px; border-width: 4px; }
+  .pass-to { font-weight: 900; color: var(--muted); font-size: 1.2rem; }
+  .pass-name {
+    font-family: var(--hand); font-weight: 400;
+    font-size: clamp(3rem, 14vw, 5.5rem);
+    line-height: 1; margin: 6px 0 12px;
+    overflow-wrap: anywhere;
+  }
+  .pass-task {
+    display: inline-block;
+    background: var(--sun);
+    border: 3px solid var(--ink); border-radius: 12px;
+    padding: 8px 16px; font-weight: 900; font-size: 1.15rem;
+    transform: rotate(-1.5deg);
+  }
+  .pass-warn { color: var(--muted); margin: 20px 0 24px; font-size: 1rem; }
+  .dots { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+  .dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink); background: #fff; }
+  .dots i.done { background: var(--ink); }
+  .dots i.now { background: var(--coral); transform: scale(1.3); }
+  .quit {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+    font: inherit; font-weight: 800; font-size: .95rem; color: var(--muted);
+    background: none; border: 0; padding: 10px; cursor: pointer;
+  }
+  .times-up {
+    display: inline-block; background: var(--coral); color: #fff; border: 3px solid var(--ink);
+    border-radius: 12px; padding: 4px 14px; font-weight: 900; margin-bottom: 14px; transform: rotate(2deg);
+  }
+
+  /* ---------- write ---------- */
+  .write .panel { display: grid; gap: 14px; }
+  .write p { color: var(--muted); }
+
+  /* ---------- in-turn screens (draw & guess) ---------- */
+  .game-screen { overflow: hidden; gap: 10px; }
+  .game-top { display: flex; align-items: center; gap: 12px; flex: none; }
+  .task {
+    flex: 1; min-width: 0;
+    background: var(--card);
+    border: 3px solid var(--ink); border-radius: 16px;
+    padding: 6px 14px;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .task-text {
+    display: block;
+    font-family: var(--hand); font-size: clamp(1.5rem, 5.5vw, 2.2rem); line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+  .timer {
+    flex: none;
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--sun); border: 3px solid var(--ink);
+    display: grid; place-items: center;
+    font-weight: 900; font-size: 1.6rem;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .timer.urgent { background: var(--coral); color: #fff; animation: pulse .5s ease-in-out infinite alternate; }
+  @keyframes pulse { to { transform: scale(1.1); } }
+  .timer-bar { flex: none; height: 10px; border: 2px solid var(--ink); border-radius: 99px; background: #fff; overflow: hidden; }
+  .timer-bar i { display: block; height: 100%; background: var(--teal); transform-origin: left; }
+  .timer.urgent + .timer-bar i, .game-top:has(.urgent) + .timer-bar i { background: var(--coral); }
+
+  .stage { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #pad, #guess-img {
+    display: block;
+    background: #fff;
+    border: 3px solid var(--ink);
+    border-radius: 16px;
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+  #pad { touch-action: none; cursor: crosshair; }
+
+  .draw-main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+  .tools { flex: none; display: grid; gap: 10px; }
+  .swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .swatch {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 3px solid var(--ink); cursor: pointer; padding: 0; touch-action: manipulation;
+  }
+  .swatch[aria-pressed=true] { transform: scale(1.18); box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink); }
+  .tool-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+  .tool {
+    width: 52px; height: 52px;
+    border: 3px solid var(--ink); border-radius: 14px; background: #fff; color: var(--ink);
+    display: grid; place-items: center; cursor: pointer; padding: 0; touch-action: manipulation;
+  }
+  .tool svg { width: 26px; height: 26px; }
+  .tool[aria-pressed=true] { background: var(--ink); color: #fff; }
+  .tool:disabled { opacity: .35; }
+  .tool .dot { background: currentColor; border-radius: 50%; }
+
+  @media (min-aspect-ratio: 1/1) {
+    .draw-main { flex-direction: row; }
+    .tools { width: clamp(220px, 28vw, 300px); align-content: center; }
+    .swatches { display: grid; grid-template-columns: repeat(6, 1fr); justify-items: center; }
+  }
+  @media (min-aspect-ratio: 1/1) and (max-height: 520px) {
+    .swatch { width: 30px; height: 30px; }
+    .tool { width: 42px; height: 42px; }
+    .tools .btn { min-height: 48px; }
+  }
+  @media (max-height: 520px) {
+    .timer { width: 50px; height: 50px; font-size: 1.25rem; }
+    .task { padding: 3px 12px; }
+    .task .label { display: none; }
+    .task-text { font-size: 1.4rem; }
+    .game-screen { gap: 6px; }
+  }
+
+  .answer { flex: none; display: flex; gap: 10px; }
+  .answer .btn { flex: none; }
+
+  /* ---------- reveal ---------- */
+  .reveal-intro { text-align: center; }
+  .reveal-intro .big { font-size: 5rem; line-height: 1; margin-bottom: 8px; }
+  .reveal-intro p { color: var(--muted); margin: 10px 0 24px; font-size: 1.15rem; }
+
+  .reveal { padding-bottom: 0; }
+  .reveal > .wrap { margin: 0 auto; flex: 1 0 auto; }
+  .feed { display: grid; gap: 14px; padding: 10px 0 24px; }
+  .feed-title { text-align: center; font-family: var(--hand); font-size: 2.4rem; }
+  .card {
+    position: relative;
+    background: var(--card);
+    border: 3px solid var(--ink); border-radius: 20px;
+    box-shadow: 5px 5px 0 var(--ink);
+    padding: 14px;
+    animation: pop .35s cubic-bezier(.2, .9, .3, 1.35);
+  }
+  @keyframes pop { from { opacity: 0; transform: scale(.85) rotate(-2deg); } }
+  .card + .card::before {
+    content: "↓"; position: absolute; top: -17px; left: 50%; transform: translate(-50%, -50%);
+    font-weight: 900; font-size: 1.4rem; color: var(--muted);
+  }
+  .card header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .card header b { font-size: 1.2rem; font-weight: 900; }
+  .card header span { color: var(--muted); }
+  .card header .late { background: #ffe1e1; color: var(--coral); border-radius: 8px; padding: 1px 8px; font-size: .85rem; font-weight: 900; }
+  .crown {
+    margin-left: auto; flex: none;
+    width: 48px; height: 48px; border-radius: 12px;
+    border: 3px solid transparent; background: none;
+    font-size: 1.6rem; cursor: pointer; filter: grayscale(1); opacity: .45; touch-action: manipulation;
+  }
+  .card.crowned { border-color: #d49a00; box-shadow: 5px 5px 0 #d49a00; background: #fffbe8; }
+  .card.crowned .crown { filter: none; opacity: 1; border-color: #d49a00; background: var(--sun); }
+  .card .said {
+    font-family: var(--hand); font-size: clamp(2rem, 7vw, 3rem); line-height: 1.1; text-align: center;
+    padding: 10px 6px 14px; overflow-wrap: anywhere;
+  }
+  .card .said.empty { color: var(--muted); font-size: 1.6rem; }
+  .card img {
+    display: block; width: 100%; max-width: min(100%, calc(var(--app-h) - 220px));
+    aspect-ratio: 1; margin: 0 auto;
+    border: 3px solid var(--ink); border-radius: 12px; background: #fff;
+  }
+  .reveal-bar {
+    position: sticky; bottom: 0;
+    margin: 0 calc(-1 * max(16px, env(safe-area-inset-left)));
+    padding: 12px max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, rgba(255, 248, 236, 0), var(--paper) 30%);
+  }
+  .reveal-bar .wrap { display: flex; gap: 10px; align-items: center; }
+  .reveal-bar .count { font-weight: 900; color: var(--muted); min-width: 64px; text-align: center; }
+  .reveal-bar .btn { flex: 1; }
+  .summary { text-align: center; display: grid; gap: 12px; margin: 10px 0 8px; }
+  .summary .from-to { font-family: var(--hand); font-size: 1.8rem; line-height: 1.2; }
+  .summary .from-to em { font-style: normal; color: var(--coral); }
+  .summary .from-to strong { font-weight: 400; color: var(--sky); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 10;
+    transform: translate(-50%, calc(100% + 60px));
+    opacity: 0;
+    background: var(--ink); color: #fff; font-weight: 800;
+    padding: 12px 20px; border-radius: 14px; max-width: calc(100% - 32px); text-align: center;
+    transition: transform .25s cubic-bezier(.2, .9, .3, 1.2), opacity .2s;
+    pointer-events: none;
+  }
+  .toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= HOME ================= -->
+<section id="home" class="screen">
+  <div class="wrap enter">
+    <div class="logo">
+      <h1><span class="s1">Scribble</span><br><span class="s2">Relay</span></h1>
+      <svg viewBox="0 0 360 30" aria-hidden="true"><path d="M8 18 C 60 4, 100 28, 150 14 S 250 6, 300 18 S 345 20, 352 12" fill="none" stroke="#ffd23f" stroke-width="9" stroke-linecap="round"/></svg>
+      <div class="tagline">Write it. Draw it. Guess it. Ruin it.</div>
+    </div>
+
+    <div class="steps">
+      <div class="step"><b>✍️</b><span>Write</span><small>a secret phrase</small></div>
+      <div class="step"><b>🎨</b><span>Draw</span><small>what you read</small></div>
+      <div class="step"><b>🤔</b><span>Guess</span><small>what you see</small></div>
+      <div class="step"><b>😂</b><span>Reveal</span><small>how it went wrong</small></div>
+    </div>
+
+    <button class="btn primary block" id="go-setup">▶&nbsp; New game</button>
+    <p class="home-note">Pass one phone, tablet or laptop around.<br>3 to 12 players. No sign-up, no internet needed once loaded.</p>
+  </div>
+</section>
+
+<!-- ================= SETUP ================= -->
+<section id="setup" class="screen setup" hidden>
+  <div class="wrap enter">
+    <div class="setup-head">
+      <h2>Who's playing?</h2>
+      <button class="btn small" id="setup-back">← Back</button>
+    </div>
+
+    <div class="panel">
+      <div class="label" id="player-count">4 players</div>
+      <div class="player-list" id="player-list"></div>
+      <div class="row">
+        <button class="btn small" id="add-player">＋ Add player</button>
+        <button class="btn small" id="shuffle-players">🔀 Shuffle order</button>
+      </div>
+      <p class="hint">Players take turns in this order. Sit in a circle in the same order so passing is easy.</p>
+
+      <div class="settings">
+        <div>
+          <div class="label">Drawing time</div>
+          <div class="seg" data-key="drawSec">
+            <button data-v="30">30s</button><button data-v="45">45s</button><button data-v="60">60s</button><button data-v="90">90s</button><button data-v="0">No limit</button>
+          </div>
+        </div>
+        <div>
+          <div class="label">Guessing time</div>
+          <div class="seg" data-key="guessSec">
+            <button data-v="20">20s</button><button data-v="30">30s</button><button data-v="45">45s</button><button data-v="0">No limit</button>
+          </div>
+        </div>
+        <div>
+          <div class="label">Chain length</div>
+          <div class="seg" data-key="laps">
+            <button data-v="1">Everyone once</button><button data-v="2">Everyone twice</button>
+          </div>
+          <p class="hint">Twice is great for 3–4 players. It makes the chain longer and more chaotic.</p>
+        </div>
+        <div>
+          <div class="label">Sound</div>
+          <div class="seg" data-key="sound">
+            <button data-v="1">🔊 On</button><button data-v="0">🔇 Off</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-foot">
+      <button class="btn primary block" id="start-game">Start game ▶</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PASS THE DEVICE ================= -->
+<section id="pass" class="screen pass" hidden>
+  <button class="quit" id="quit-game">✕ Quit</button>
+  <div class="wrap enter" id="pass-inner">
+    <div class="dots" id="pass-dots"></div>
+    <div id="pass-timesup" class="times-up" hidden>⏰ Time's up!</div>
+    <div class="pass-to">Pass the device to</div>
+    <div class="avatar" id="pass-avatar">A</div>
+    <div class="pass-name" id="pass-name">Name</div>
+    <div class="pass-task" id="pass-task">You will draw</div>
+    <p class="pass-warn">No peeking, everyone else! 🙈</p>
+    <button class="btn primary block" id="pass-go" disabled>I'm ready</button>
+  </div>
+</section>
+
+<!-- ================= WRITE ================= -->
+<section id="write" class="screen write" hidden>
+  <div class="wrap enter">
+    <div class="panel">
+      <h2>Write a secret phrase</h2>
+      <p>Something fun to draw. The next player will draw it, so keep it secret!</p>
+      <form id="write-form" class="answer" autocomplete="off">
+        <input type="text" id="write-input" maxlength="60" placeholder="e.g. a cat robbing a bank" enterkeyhint="done" autocapitalize="sentences">
+      </form>
+      <button class="btn sun block" id="write-dice" type="button">🎲 Give me a random one</button>
+      <button class="btn primary block" id="write-done" type="button" disabled>Lock it in ✓</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DRAW ================= -->
+<section id="draw" class="screen game-screen" hidden>
+  <div class="game-top">
+    <div class="task"><span class="label">Draw this</span><span class="task-text" id="draw-prompt"></span></div>
+    <div class="timer"><span class="timer-num">60</span></div>
+  </div>
+  <div class="timer-bar"><i></i></div>
+  <div class="draw-main">
+    <div class="stage" id="draw-stage"><canvas id="pad" aria-label="Drawing canvas"></canvas></div>
+    <div class="tools">
+      <div class="swatches" id="swatches"></div>
+      <div class="tool-row">
+        <button class="tool" data-size="0" aria-label="Thin brush"><span class="dot" style="width:8px;height:8px"></span></button>
+        <button class="tool" data-size="1" aria-label="Medium brush"><span class="dot" style="width:15px;height:15px"></span></button>
+        <button class="tool" data-size="2" aria-label="Thick brush"><span class="dot" style="width:24px;height:24px"></span></button>
+        <button class="tool" id="tool-eraser" aria-label="Eraser">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H9L3.5 14.5a2 2 0 0 1 0-2.8l8.2-8.2a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L12 18.8"/><path d="M7 9l8 8"/></svg>
+        </button>
+        <button class="tool" id="tool-undo" aria-label="Undo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+        </button>
+        <button class="tool" id="tool-clear" aria-label="Clear drawing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg>
+        </button>
+      </div>
+      <button class="btn primary block" id="draw-done">Done ✓</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= GUESS ================= -->
+<section id="guess" class="screen game-screen" hidden>
+  <div class="game-top">
+    <div class="task"><span class="label">Your turn</span><span class="task-text">What is this drawing?</span></div>
+    <div class="timer"><span class="timer-num">30</span></div>
+  </div>
+  <div class="timer-bar"><i></i></div>
+  <div class="stage" id="guess-stage"><img id="guess-img" alt="The drawing to guess"></div>
+  <form class="answer" id="guess-form" autocomplete="off">
+    <input type="text" id="guess-input" maxlength="60" placeholder="Type your guess…" enterkeyhint="done" autocapitalize="sentences">
+    <button class="btn primary" type="submit">Done ✓</button>
+  </form>
+</section>
+
+<!-- ================= REVEAL INTRO ================= -->
+<section id="reveal-intro" class="screen reveal-intro" hidden>
+  <div class="wrap enter">
+    <div class="big">🎉</div>
+    <h2>The relay is finished!</h2>
+    <p>Gather everyone around the screen.<br>Let's see how badly it went.</p>
+    <div class="row">
+      <button class="btn primary" id="start-reveal">Start the reveal ▶</button>
+      <button class="btn" id="fullscreen" hidden>⛶ Fullscreen</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= REVEAL ================= -->
+<section id="reveal" class="screen reveal" hidden>
+  <div class="wrap">
+    <div class="feed-title">The chain</div>
+    <div class="feed" id="feed"></div>
+    <div class="summary" id="reveal-end" hidden>
+      <div class="from-to" id="from-to"></div>
+      <p class="hint">Tap 👑 on the funniest turn.</p>
+      <div class="row">
+        <button class="btn teal" id="save-image">📸 Save as image</button>
+        <button class="btn primary" id="play-again">🔁 Play again</button>
+      </div>
+      <button class="btn small" id="reveal-home">Home</button>
+    </div>
+  </div>
+  <div class="reveal-bar" id="reveal-bar">
+    <div class="wrap">
+      <span class="count" id="reveal-count">1 / 8</span>
+      <button class="btn primary" id="reveal-next">Next ▶</button>
+    </div>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   Scribble Relay
+   A chain of turns: write -> draw -> guess -> draw -> guess ...
+   Each player only ever sees the turn right before theirs.
+   ===================================================================== */
+
+const $ = (s, root = document) => root.querySelector(s);
+const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+
+const PROMPTS = [
+  'A cat robbing a bank', 'A shark riding a bicycle', 'Grandma breakdancing', 'A snowman on a hot beach',
+  'A dinosaur doing homework', 'A pizza running away', 'An alien ordering fast food', 'A robot walking a dog',
+  'A penguin at a job interview', 'The moon eating noodles', 'A giraffe stuck in a car', 'A ghost afraid of the dark',
+  'A banana at the gym', 'A king who lost his crown', 'An octopus playing drums', 'A cow in space',
+  'A haunted washing machine', 'A chicken crossing a busy road', 'A superhero doing laundry', 'A volcano sneezing',
+  'A teacher sleeping in class', 'A goldfish walking a human', 'A burger wearing sunglasses', 'A wizard stuck in traffic',
+  'A duck with a jetpack', 'A tree getting a haircut', 'A monkey taking a selfie', 'A crocodile at the dentist',
+  'An elephant hiding behind a lamp', 'A mermaid eating sushi', 'Zombies at a birthday party', 'A cloud raining on one person',
+  'A bear shoplifting honey', 'A camel in a snowstorm', 'Pirates on a rubber duck', 'A spider knitting a sweater',
+  'A frog on a skateboard', 'A vampire at the beach', 'A cactus giving a hug', 'A horse playing video games',
+  'A lion at the hair salon', 'A tiny dragon making toast', 'A toilet that is also a rocket', 'A car wash for dogs',
+  'A mouse lifting weights', 'An angry alarm clock', 'A sheep counting humans', 'A snail winning a race',
+  'A bee directing traffic', 'A slice of cake on holiday', 'A kangaroo boxing a cactus', 'A detective looking for socks',
+  'A chef chasing a runaway egg', 'A panda in a bubble bath', 'A lighthouse at a disco', 'A sloth delivering pizza',
+  'Karaoke night for cats', 'A hamster driving a bus', 'A hot dog in a sleeping bag', 'An owl reading the news',
+  'A dog scared of a leaf', 'Aliens abducting a cow', 'A turtle with a rocket shell', 'A pineapple surfing',
+  'A queen skydiving', 'A potato watching TV', 'A spaghetti monster', 'A wedding for two snails',
+  'A ninja in a library', 'A unicorn stuck in the mud', 'A bird building a skyscraper', 'A worm going to school',
+  'A giant eating a tiny sandwich', 'A cat judging a talent show', 'A piano falling from the sky', 'A bunny farming on the moon',
+  'A mosquito with a straw', 'Two socks in love', 'A yeti selling ice cream', 'A clown in a tiny car',
+  'An exploding birthday cake', 'A robot learning to dance', 'A crab playing tennis', 'A cupcake superhero',
+  'The sun wearing a hat', 'A cow jumping over the moon', 'A zebra at a crosswalk', 'A mummy unwrapping a present',
+  'A goat on a mountain bike', 'A fish out of water', 'A polar bear in the desert', 'A really bad hair day',
+  'A skeleton drinking milk', 'A phone with no battery', 'A dog doing its taxes', 'A traffic jam of ducks',
+];
+
+const COLORS = ['#1f2440', '#8a8fa3', '#e63946', '#ff8c1a', '#ffd23f', '#43b649',
+                '#2a9df4', '#7b2cbf', '#ff85c0', '#8d5524', '#f1c27d', '#ffffff'];
+const SIZES = [7, 16, 38];            // brush widths, in canvas pixels
+const PAD_SIZE = 1024;                // the drawing is always 1024 x 1024, however big the screen is
+const AVATAR_COLORS = ['#ff5a5f', '#4d96ff', '#2ec4b6', '#f4a100', '#9b5de5', '#f15bb5',
+                       '#00a6d6', '#6fb82a', '#ff7d3b', '#6a4c93', '#1982c4', '#d62f6b'];
+const KIND_LABEL = { write: 'started with', draw: 'drew', guess: 'guessed' };
+
+/* ---------- saved settings (remembered between visits) ---------- */
+const store = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem('scribble-relay:' + key); return v === null ? fallback : JSON.parse(v); }
+    catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem('scribble-relay:' + key, JSON.stringify(value)); } catch { /* private mode */ }
+  },
+};
+
+const game = {
+  players: store.get('players', ['', '', '', '']),
+  drawSec: store.get('drawSec', 60),
+  guessSec: store.get('guessSec', 30),
+  laps: store.get('laps', 1),
+  sound: store.get('sound', 1),
+  names: [],       // player names locked in when the game starts
+  chain: [],       // { kind, player, value, late }
+  turn: 0,
+  total: 0,
+  active: false,
+  crown: -1,
+  revealed: 0,
+};
+
+const kindOf = t => (t === 0 ? 'write' : t % 2 === 1 ? 'draw' : 'guess');
+const playerOf = t => t % game.names.length;
+const avatarColor = i => AVATAR_COLORS[i % AVATAR_COLORS.length];
+const initial = name => ([...name.trim()][0] || '?').toUpperCase();
+const touchDevice = matchMedia('(pointer: coarse)').matches;
+
+/* ---------- screens ---------- */
+function show(id) {
+  $$('.screen').forEach(s => { s.hidden = s.id !== id; });
+  const screen = $('#' + id);
+  screen.scrollTop = 0;
+  const inner = $('.enter', screen);
+  if (inner) { inner.classList.remove('enter'); void inner.offsetWidth; inner.classList.add('enter'); }
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* Keep screens sized to the part of the page actually visible,
+   so the on-screen keyboard on phones doesn't cover the input. */
+function syncViewport() {
+  const vv = window.visualViewport;
+  const root = document.documentElement.style;
+  root.setProperty('--app-h', (vv ? vv.height : innerHeight) + 'px');
+  root.setProperty('--app-top', (vv ? vv.offsetTop : 0) + 'px');
+}
+if (window.visualViewport) {
+  visualViewport.addEventListener('resize', syncViewport);
+  visualViewport.addEventListener('scroll', syncViewport);
+}
+addEventListener('resize', syncViewport);
+syncViewport();
+
+/* ---------- sound (made in code, no audio files) ---------- */
+let audioCtx = null;
+function beep(freq, dur, type = 'triangle', vol = 0.12, delay = 0) {
+  if (!game.sound) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t = audioCtx.currentTime + delay;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
+  } catch { /* no audio available */ }
+}
+const sfx = {
+  tap: () => beep(540, 0.06, 'triangle', 0.07),
+  tick: () => beep(950, 0.06, 'square', 0.04),
+  buzz: () => { beep(200, 0.35, 'sawtooth', 0.1); beep(150, 0.4, 'sawtooth', 0.08, 0.1); },
+  pop: () => { beep(620, 0.08, 'triangle', 0.12); beep(930, 0.12, 'triangle', 0.1, 0.07); },
+  done: () => { beep(660, 0.1); beep(880, 0.16, 'triangle', 0.12, 0.09); },
+  fanfare: () => [523, 659, 784, 1047].forEach((f, i) => beep(f, i === 3 ? 0.45 : 0.16, 'triangle', 0.12, i * 0.13)),
+};
+const buzzPhone = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch { /* unsupported */ } };
+
+/* ---------- keep the screen awake during a game ---------- */
+let wakeLock = null;
+async function keepAwake() {
+  try {
+    if ('wakeLock' in navigator && document.visibilityState === 'visible') wakeLock = await navigator.wakeLock.request('screen');
+  } catch { /* not allowed, fine */ }
+}
+function releaseAwake() { try { wakeLock && wakeLock.release(); } catch { } wakeLock = null; }
+document.addEventListener('visibilitychange', () => { if (game.active && document.visibilityState === 'visible') keepAwake(); });
+addEventListener('beforeunload', e => { if (game.active) { e.preventDefault(); e.returnValue = ''; } });
+
+/* =====================================================================
+   SETUP
+   ===================================================================== */
+function savePlayers() { store.set('players', game.players); }
+
+function renderPlayers() {
+  const list = $('#player-list');
+  list.innerHTML = '';
+  game.players.forEach((name, i) => {
+    const row = document.createElement('div');
+    row.className = 'player-row';
+    row.innerHTML = `
+      <span class="avatar" style="background:${avatarColor(i)}">${i + 1}</span>
+      <input type="text" maxlength="16" placeholder="Player ${i + 1}" autocomplete="off" autocapitalize="words" enterkeyhint="next">
+      <button class="icon-btn" type="button" aria-label="Remove player ${i + 1}">✕</button>`;
+    const input = $('input', row);
+    input.value = name;
+    input.addEventListener('input', () => { game.players[i] = input.value; savePlayers(); });
+    input.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const next = list.querySelectorAll('input')[i + 1];
+      next ? next.focus() : input.blur();
+    });
+    $('button', row).addEventListener('click', () => {
+      if (game.players.length <= 3) return toast('You need at least 3 players');
+      game.players.splice(i, 1);
+      savePlayers();
+      renderPlayers();
+    });
+    list.append(row);
+  });
+  $('#player-count').textContent = `${game.players.length} players`;
+  $('#add-player').disabled = game.players.length >= 12;
+}
+
+function renderSettings() {
+  $$('.seg').forEach(seg => {
+    const key = seg.dataset.key;
+    $$('button', seg).forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === +game[key])));
+  });
+}
+
+$$('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  game[seg.dataset.key] = +b.dataset.v;
+  store.set(seg.dataset.key, +b.dataset.v);
+  renderSettings();
+  sfx.tap();
+}));
+
+$('#go-setup').addEventListener('click', () => { sfx.tap(); renderPlayers(); renderSettings(); show('setup'); });
+$('#setup-back').addEventListener('click', () => show('home'));
+$('#add-player').addEventListener('click', () => {
+  if (game.players.length >= 12) return;
+  game.players.push('');
+  savePlayers();
+  renderPlayers();
+  const inputs = $$('#player-list input');
+  if (!touchDevice) inputs[inputs.length - 1].focus();
+});
+$('#shuffle-players').addEventListener('click', () => {
+  const p = game.players;
+  for (let i = p.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; }
+  savePlayers();
+  renderPlayers();
+  sfx.pop();
+});
+
+$('#start-game').addEventListener('click', () => {
+  game.names = game.players.map((n, i) => n.trim() || `Player ${i + 1}`);
+  game.total = game.names.length * game.laps;
+  game.chain = [];
+  game.turn = 0;
+  game.crown = -1;
+  game.active = true;
+  sfx.done();
+  keepAwake();
+  showPass(false);
+});
+
+/* =====================================================================
+   PASS THE DEVICE
+   ===================================================================== */
+let passGuard;
+function showPass(timesUp) {
+  const t = game.turn;
+  const p = playerOf(t);
+  const name = game.names[p];
+  const task = {
+    write: '✍️ You will write a secret phrase',
+    draw: '🎨 You will draw',
+    guess: '🤔 You will guess a drawing',
+  }[kindOf(t)];
+
+  $('#pass-dots').innerHTML = Array.from({ length: game.total },
+    (_, i) => `<i class="${i < t ? 'done' : i === t ? 'now' : ''}"></i>`).join('');
+  $('#pass-timesup').hidden = !timesUp;
+  const avatar = $('#pass-avatar');
+  avatar.textContent = initial(name);
+  avatar.style.background = avatarColor(p);
+  $('#pass-name').textContent = name;
+  $('#pass-task').textContent = task;
+
+  // A short lock so the player who just finished can't tap "ready" by accident.
+  const go = $('#pass-go');
+  go.textContent = `I'm ${name}, let's go!`;
+  go.disabled = true;
+  clearTimeout(passGuard);
+  passGuard = setTimeout(() => { go.disabled = false; }, t === 0 ? 300 : 1100);
+  show('pass');
+}
+
+$('#pass-go').addEventListener('click', () => {
+  sfx.tap();
+  const t = game.turn;
+  const kind = kindOf(t);
+  const prev = game.chain[t - 1];
+
+  if (kind === 'write') {
+    $('#write-input').value = '';
+    $('#write-done').disabled = true;
+    show('write');
+    if (!touchDevice) $('#write-input').focus();
+  } else if (kind === 'draw') {
+    $('#draw-prompt').textContent = prev.value ? prev.value : 'Nobody guessed in time. Draw anything!';
+    pad.reset();
+    show('draw');
+    fitSquare($('#draw-stage'), $('#pad'));
+    startTimer($('#draw'), game.drawSec, () => submitTurn(pad.export(), true));
+  } else {
+    $('#guess-img').src = prev.value;
+    $('#guess-input').value = '';
+    show('guess');
+    fitSquare($('#guess-stage'), $('#guess-img'));
+    if (!touchDevice) $('#guess-input').focus();
+    startTimer($('#guess'), game.guessSec, () => submitTurn($('#guess-input').value.trim(), true));
+  }
+});
+
+$('#quit-game').addEventListener('click', () => {
+  if (!confirm('Quit this game? The chain so far will be lost.')) return;
+  endGame();
+  show('home');
+});
+
+function submitTurn(value, late = false) {
+  if (game.chain.length !== game.turn) return;   // already submitted (e.g. timer and button at once)
+  stopTimer();
+  game.chain.push({ kind: kindOf(game.turn), player: playerOf(game.turn), value, late });
+  game.turn++;
+  document.activeElement && document.activeElement.blur();
+  if (late) { sfx.buzz(); buzzPhone([80, 60, 80]); } else sfx.done();
+
+  if (game.turn >= game.total) {
+    game.active = false;
+    show('reveal-intro');
+    sfx.fanfare();
+  } else {
+    showPass(late);
+  }
+}
+
+function endGame() {
+  stopTimer();
+  game.active = false;
+  releaseAwake();
+}
+
+/* =====================================================================
+   TIMER
+   ===================================================================== */
+let timerFrame = null;
+function startTimer(screen, seconds, onEnd) {
+  stopTimer();
+  const box = $('.timer', screen);
+  const num = $('.timer-num', screen);
+  const fill = $('.timer-bar i', screen);
+  box.classList.remove('urgent');
+  fill.style.transform = 'scaleX(1)';
+  if (!seconds) { num.textContent = '∞'; return; }
+
+  const endAt = performance.now() + seconds * 1000;
+  let lastWhole = -1;
+  const tick = () => {
+    const left = Math.max(0, endAt - performance.now());
+    const whole = Math.ceil(left / 1000);
+    fill.style.transform = `scaleX(${left / (seconds * 1000)})`;
+    if (whole !== lastWhole) {
+      lastWhole = whole;
+      num.textContent = whole;
+      if (whole <= 5 && whole > 0) { box.classList.add('urgent'); sfx.tick(); buzzPhone(25); }
+    }
+    if (left <= 0) { timerFrame = null; onEnd(); return; }
+    timerFrame = requestAnimationFrame(tick);
+  };
+  timerFrame = requestAnimationFrame(tick);
+}
+function stopTimer() {
+  if (timerFrame) cancelAnimationFrame(timerFrame);
+  timerFrame = null;
+}
+
+/* Make the canvas / image the largest square that fits its area. */
+function fitSquare(stage, el) {
+  const r = stage.getBoundingClientRect();
+  const size = Math.max(120, Math.floor(Math.min(r.width, r.height)));
+  el.style.width = el.style.height = size + 'px';
+}
+const stageObserver = new ResizeObserver(() => {
+  if (!$('#draw').hidden) fitSquare($('#draw-stage'), $('#pad'));
+  if (!$('#guess').hidden) fitSquare($('#guess-stage'), $('#guess-img'));
+});
+stageObserver.observe($('#draw-stage'));
+stageObserver.observe($('#guess-stage'));
+
+/* =====================================================================
+   WRITE
+   ===================================================================== */
+const writeInput = $('#write-input');
+writeInput.addEventListener('input', () => { $('#write-done').disabled = !writeInput.value.trim(); });
+$('#write-dice').addEventListener('click', () => {
+  let pick;
+  do { pick = PROMPTS[Math.floor(Math.random() * PROMPTS.length)]; } while (pick === writeInput.value && PROMPTS.length > 1);
+  writeInput.value = pick;
+  $('#write-done').disabled = false;
+  sfx.pop();
+});
+const submitWrite = () => { const v = writeInput.value.trim(); if (v) submitTurn(v); };
+$('#write-done').addEventListener('click', submitWrite);
+$('#write-form').addEventListener('submit', e => { e.preventDefault(); submitWrite(); });
+
+/* =====================================================================
+   GUESS
+   ===================================================================== */
+$('#guess-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('#guess-input').value.trim();
+  if (!v) { toast('Type a guess first'); $('#guess-input').focus(); return; }
+  submitTurn(v);
+});
+
+/* =====================================================================
+   DRAWING PAD
+   Every stroke is kept as a list of points, so undo is just
+   "forget the last stroke and repaint the rest".
+   ===================================================================== */
+const pad = (() => {
+  const canvas = $('#pad');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.height = PAD_SIZE;
+
+  // Finished strokes are painted onto this hidden canvas once, so we only
+  // redraw the stroke in progress each frame.
+  const base = document.createElement('canvas');
+  base.width = base.height = PAD_SIZE;
+  const bctx = base.getContext('2d');
+
+  let strokes = [];
+  let current = null;
+  let color = COLORS[0];
+  let sizeIndex = 1;
+  let erasing = false;
+  let rect = null;
+  let framePending = false;
+
+  function paintStroke(c, s) {
+    if (s.clear) { c.fillStyle = '#fff'; c.fillRect(0, 0, PAD_SIZE, PAD_SIZE); return; }
+    const p = s.points;
+    c.strokeStyle = c.fillStyle = s.color;
+    c.lineWidth = s.size;
+    c.lineCap = c.lineJoin = 'round';
+    if (p.length === 1) {
+      c.beginPath(); c.arc(p[0][0], p[0][1], s.size / 2, 0, Math.PI * 2); c.fill();
+      return;
+    }
+    // smooth the line by curving through the midpoints between samples
+    c.beginPath();
+    c.moveTo(p[0][0], p[0][1]);
+    for (let i = 1; i < p.length - 1; i++) {
+      c.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);
+    }
+    const last = p[p.length - 1];
+    c.lineTo(last[0], last[1]);
+    c.stroke();
+  }
+
+  function rebuild() {
+    bctx.fillStyle = '#fff';
+    bctx.fillRect(0, 0, PAD_SIZE, PAD_SIZE);
+    strokes.forEach(s => paintStroke(bctx, s));
+    requestPaint();
+  }
+
+  function requestPaint() {
+    if (framePending) return;
+    framePending = true;
+    requestAnimationFrame(() => {
+      framePending = false;
+      ctx.drawImage(base, 0, 0);
+      if (current) paintStroke(ctx, current);
+    });
+  }
+
+  function pointFrom(e) {
+    const x = (e.clientX - rect.left - canvas.clientLeft) / canvas.clientWidth * PAD_SIZE;
+    const y = (e.clientY - rect.top - canvas.clientTop) / canvas.clientHeight * PAD_SIZE;
+    return [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    if (current || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.preventDefault();
+    try { canvas.setPointerCapture(e.pointerId); } catch { }
+    rect = canvas.getBoundingClientRect();
+    const size = SIZES[sizeIndex] * (erasing ? 2 : 1);
+    current = { id: e.pointerId, color: erasing ? '#ffffff' : color, size, points: [pointFrom(e)] };
+    requestPaint();
+  });
+
+  canvas.addEventListener('pointermove', e => {
+    if (!current || e.pointerId !== current.id) return;
+    const events = e.getCoalescedEvents && e.getCoalescedEvents().length ? e.getCoalescedEvents() : [e];
+    for (const ev of events) {
+      const q = pointFrom(ev);
+      const last = current.points[current.points.length - 1];
+      if (Math.hypot(q[0] - last[0], q[1] - last[1]) > 1.5) current.points.push(q);
+    }
+    requestPaint();
+  });
+
+  function finishStroke(e) {
+    if (!current || (e && e.pointerId !== current.id)) return;
+    const s = current;
+    current = null;
+    delete s.id;
+    strokes.push(s);
+    paintStroke(bctx, s);
+    requestPaint();
+    syncTools();
+  }
+  canvas.addEventListener('pointerup', finishStroke);
+  canvas.addEventListener('pointercancel', finishStroke);
+
+  function syncTools() {
+    $$('.swatch').forEach(b => b.setAttribute('aria-pressed', String(!erasing && b.dataset.color === color)));
+    $$('.tool[data-size]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.size === sizeIndex)));
+    $('#tool-eraser').setAttribute('aria-pressed', String(erasing));
+    $('#tool-undo').disabled = strokes.length === 0;
+    $('#tool-clear').disabled = strokes.length === 0 || strokes[strokes.length - 1].clear;
+  }
+
+  // colour buttons
+  const swatches = $('#swatches');
+  COLORS.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'swatch';
+    b.type = 'button';
+    b.dataset.color = c;
+    b.style.background = c;
+    b.setAttribute('aria-label', 'Colour ' + c);
+    b.addEventListener('click', () => { color = c; erasing = false; syncTools(); sfx.tap(); });
+    swatches.append(b);
+  });
+  $$('.tool[data-size]').forEach(b => b.addEventListener('click', () => { sizeIndex = +b.dataset.size; syncTools(); sfx.tap(); }));
+  $('#tool-eraser').addEventListener('click', () => { erasing = !erasing; syncTools(); sfx.tap(); });
+  const undo = () => { if (!strokes.length) return; strokes.pop(); rebuild(); syncTools(); sfx.tap(); };
+  $('#tool-undo').addEventListener('click', undo);
+  // "Clear" is saved as a step too, so it can be undone.
+  $('#tool-clear').addEventListener('click', () => { strokes.push({ clear: true }); rebuild(); syncTools(); sfx.pop(); });
+
+  addEventListener('keydown', e => {
+    if ($('#draw').hidden) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+  });
+
+  return {
+    reset() {
+      strokes = []; current = null; color = COLORS[0]; sizeIndex = 1; erasing = false;
+      rebuild(); syncTools();
+    },
+    export() {
+      if (current) finishStroke();
+      return base.toDataURL('image/png');
+    },
+  };
+})();
+
+$('#draw-done').addEventListener('click', () => submitTurn(pad.export()));
+
+/* =====================================================================
+   REVEAL
+   ===================================================================== */
+const fsButton = $('#fullscreen');
+fsButton.hidden = !document.documentElement.requestFullscreen;
+fsButton.addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => { });
+});
+
+$('#start-reveal').addEventListener('click', () => {
+  game.revealed = 0;
+  $('#feed').innerHTML = '';
+  $('#reveal-end').hidden = true;
+  $('#reveal-bar').hidden = false;
+  show('reveal');
+  revealNext();
+});
+
+function makeCard(i) {
+  const item = game.chain[i];
+  const name = game.names[item.player];
+  const card = document.createElement('article');
+  card.className = 'card';
+  card.innerHTML = `
+    <header>
+      <span class="avatar" style="background:${avatarColor(item.player)}"></span>
+      <div><b></b> <span>${KIND_LABEL[item.kind]}</span> ${item.late ? '<span class="late">time ran out</span>' : ''}</div>
+      <button class="crown" type="button" aria-label="Crown the funniest turn">👑</button>
+    </header>`;
+  $('.avatar', card).textContent = initial(name);
+  $('b', card).textContent = name;
+
+  if (item.kind === 'draw') {
+    const img = document.createElement('img');
+    img.src = item.value;
+    img.alt = `Drawing by ${name}`;
+    card.append(img);
+  } else {
+    const said = document.createElement('div');
+    said.className = 'said' + (item.value ? '' : ' empty');
+    said.textContent = item.value ? `“${item.value}”` : '(ran out of time 😅)';
+    card.append(said);
+  }
+
+  $('.crown', card).addEventListener('click', () => {
+    game.crown = game.crown === i ? -1 : i;
+    $$('#feed .card').forEach((c, j) => c.classList.toggle('crowned', j === game.crown));
+    if (game.crown === i) sfx.fanfare(); else sfx.tap();
+  });
+  return card;
+}
+
+function revealNext() {
+  if (game.revealed >= game.chain.length) return;
+  const i = game.revealed++;
+  const card = makeCard(i);
+  $('#feed').append(card);
+  sfx.pop();
+  $('#reveal-count').textContent = `${game.revealed} / ${game.chain.length}`;
+
+  const last = game.revealed === game.chain.length;
+  if (last) {
+    $('#reveal-bar').hidden = true;
+    const first = game.chain[0].value;
+    const lastText = [...game.chain].reverse().find((c, j) => c.kind === 'guess' && c.value);
+    const fromTo = $('#from-to');
+    fromTo.textContent = '';
+    if (lastText) {
+      fromTo.append('It started as ', Object.assign(document.createElement('em'), { textContent: `“${first}”` }),
+                    document.createElement('br'), 'and ended as ', Object.assign(document.createElement('strong'), { textContent: `“${lastText.value}”` }));
+    } else {
+      fromTo.append('It started as ', Object.assign(document.createElement('em'), { textContent: `“${first}”` }));
+    }
+    $('#reveal-end').hidden = false;
+    setTimeout(sfx.fanfare, 250);
+  }
+  requestAnimationFrame(() => {
+    const target = last ? $('#reveal-end') : card;
+    target.scrollIntoView({ behavior: 'smooth', block: last ? 'end' : 'center' });
+  });
+}
+
+$('#reveal-next').addEventListener('click', revealNext);
+addEventListener('keydown', e => {
+  if ($('#reveal').hidden || e.target.closest('input')) return;
+  if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    if ($('#reveal-bar').hidden) return;
+    e.preventDefault();
+    revealNext();
+  }
+});
+
+$('#play-again').addEventListener('click', () => {
+  // the next game starts with the next person in the circle
+  game.players.push(game.players.shift());
+  savePlayers();
+  releaseAwake();
+  renderPlayers();
+  renderSettings();
+  show('setup');
+});
+$('#reveal-home').addEventListener('click', () => { releaseAwake(); show('home'); });
+
+/* ---------- save the whole chain as one tall picture ---------- */
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+function wrapText(c, text, maxWidth) {
+  const lines = [];
+  let line = '';
+  for (const word of text.split(/\s+/)) {
+    const test = line ? line + ' ' + word : word;
+    if (c.measureText(test).width > maxWidth && line) { lines.push(line); line = word; } else line = test;
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [''];
+}
+
+async function buildChainImage() {
+  try { await document.fonts.ready; } catch { }
+  const W = 1080, M = 60, P = 34, HEAD = 84, GAP = 56;
+  const inner = W - M * 2 - P * 2;
+  const HAND = '62px "Gochi Hand", "Comic Sans MS", cursive';
+  const BODY = (weight, size) => `${weight} ${size}px Nunito, system-ui, sans-serif`;
+
+  const c = document.createElement('canvas');
+  const x = c.getContext('2d');
+
+  // measure first, so the canvas can be sized once
+  x.font = HAND;
+  const blocks = game.chain.map(item => {
+    if (item.kind === 'draw') return { item, h: P + HEAD + inner + P };
+    const lines = wrapText(x, item.value ? `“${item.value}”` : '(ran out of time)', inner);
+    return { item, lines, h: P + HEAD + lines.length * 74 + 24 + P };
+  });
+  const images = await Promise.all(game.chain.map(item => {
+    if (item.kind !== 'draw') return null;
+    const img = new Image();
+    img.src = item.value;
+    return img.decode().then(() => img);
+  }));
+
+  const TOP = 230;
+  c.width = W;
+  c.height = TOP + blocks.reduce((s, b) => s + b.h + GAP, 0) + 60;
+
+  // background
+  x.fillStyle = '#fff8ec';
+  x.fillRect(0, 0, W, c.height);
+  x.fillStyle = '#eadbc0';
+  for (let yy = 12; yy < c.height; yy += 30) for (let xx = 12; xx < W; xx += 30) { x.beginPath(); x.arc(xx, yy, 2, 0, 7); x.fill(); }
+
+  // title
+  x.textAlign = 'center';
+  x.textBaseline = 'alphabetic';
+  x.font = '110px "Gochi Hand", "Comic Sans MS", cursive';
+  x.fillStyle = '#ff5a5f';
+  x.fillText('Scribble Relay', W / 2, 130);
+  x.font = BODY(800, 32);
+  x.fillStyle = '#6b6f86';
+  x.fillText(`${game.names.length} players · ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`, W / 2, 185);
+
+  let y = TOP;
+  blocks.forEach((b, i) => {
+    const { item } = b;
+    const crowned = i === game.crown;
+    const edge = crowned ? '#d49a00' : '#1f2440';
+
+    if (i > 0) {   // arrow between cards
+      x.font = BODY(900, 40); x.fillStyle = '#6b6f86'; x.textAlign = 'center';
+      x.fillText('↓', W / 2, y - GAP / 2 + 14);
+    }
+    x.fillStyle = edge;
+    roundRect(x, M + 8, y + 8, W - M * 2, b.h, 26); x.fill();
+    x.fillStyle = crowned ? '#fffbe8' : '#fff';
+    roundRect(x, M, y, W - M * 2, b.h, 26); x.fill();
+    x.lineWidth = 5; x.strokeStyle = edge; x.stroke();
+
+    // header: avatar, name, what they did
+    const name = game.names[item.player];
+    const ax = M + P + 28, ay = y + P + 28;
+    x.beginPath(); x.arc(ax, ay, 28, 0, Math.PI * 2);
+    x.fillStyle = avatarColor(item.player); x.fill();
+    x.lineWidth = 4; x.strokeStyle = '#1f2440'; x.stroke();
+    x.fillStyle = '#fff'; x.font = BODY(900, 30); x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(initial(name), ax, ay + 1);
+    x.textAlign = 'left';
+    x.fillStyle = '#1f2440'; x.font = BODY(900, 38);
+    x.fillText(name, ax + 46, ay);
+    const nameW = x.measureText(name).width;
+    x.fillStyle = '#6b6f86'; x.font = BODY(700, 34);
+    x.fillText(KIND_LABEL[item.kind], ax + 46 + nameW + 14, ay);
+    if (crowned) { x.textAlign = 'right'; x.font = BODY(900, 32); x.fillStyle = '#b07f00'; x.fillText('👑 Funniest', W - M - P, ay); }
+    x.textBaseline = 'alphabetic';
+
+    // body
+    const by = y + P + HEAD;
+    if (item.kind === 'draw') {
+      x.drawImage(images[i], M + P, by, inner, inner);
+      x.lineWidth = 4; x.strokeStyle = '#1f2440';
+      roundRect(x, M + P, by, inner, inner, 14); x.stroke();
+    } else {
+      x.font = HAND; x.textAlign = 'center';
+      x.fillStyle = item.value ? '#1f2440' : '#6b6f86';
+      b.lines.forEach((line, li) => x.fillText(line, W / 2, by + 60 + li * 74));
+    }
+    y += b.h + GAP;
+  });
+
+  return new Promise(resolve => c.toBlob(resolve, 'image/png'));
+}
+
+$('#save-image').addEventListener('click', async () => {
+  const btn = $('#save-image');
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'Making image…';
+  try {
+    const blob = await buildChainImage();
+    const filename = `scribble-relay-${new Date().toISOString().slice(0, 10)}.png`;
+    const file = new File([blob], filename, { type: 'image/png' });
+    // On phones and tablets, open the share sheet (Save Image, WhatsApp, etc.)
+    if (touchDevice && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'Scribble Relay' }); return; }
+      catch (err) { if (err.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast('Image saved 📸');
+  } catch (err) {
+    console.error(err);
+    toast('Could not make the image');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+});
+</script>
+</body>
+</html>
