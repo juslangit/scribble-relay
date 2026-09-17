@@ -187,13 +187,13 @@ NOTES = [
 # sun-yellow tag (#ffd23f), set in Gochi Hand and Nunito. The coral is darkened for links so it
 # reads on paper; dark mode turns the page into navy ink with cream text.
 FONTS = "https://fonts.googleapis.com/css2?family=Gochi+Hand&family=JetBrains+Mono:wght@500&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap"
-LIGHT = """--ground: #FFF8EC; --surface: #FFFFFF; --ink: #1F2440; --muted: #5D6178; --line: #EADBC0;
-  --accent: #C4353B; --accent-soft: #FFE6DF; --flag: #FFD23F; --flag-ink: #1F2440; --done: #177A70;
+LIGHT = """--ground: #FAF7F2; --surface: #FFFFFF; --ink: #2B2622; --muted: #6B6259; --line: #E7E1D8;
+  --accent: #2F6BB0; --accent-soft: #D6E6FA; --flag: #FFEEC9; --flag-ink: #A97B12; --done: #2F7A5C;
   --display: "Gochi Hand", "Comic Sans MS", "Chalkboard SE", cursive;
   --body: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   --heading-case: none;"""
-DARK = """--ground: #171B31; --surface: #20264A; --ink: #FFF8EC; --muted: #ABAFC6; --line: #353C63;
-  --accent: #FF7A7E; --accent-soft: #3B2D45; --done: #2EC4B6;"""
+DARK = """--ground: #FAF7F2; --surface: #FFFFFF; --ink: #2B2622; --muted: #6B6259; --line: #E7E1D8;
+  --accent: #2F6BB0; --accent-soft: #D6E6FA; --done: #2F7A5C;"""
 
 
 # ============================== engine: the same in every game ==============================
@@ -643,8 +643,8 @@ TEMPLATE = """<!doctype html>
 <link rel="stylesheet" href="{{FONTS}}">
 <style>
 :root { {{LIGHT}} color-scheme: light; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { {{DARK}} color-scheme: dark; } }
-:root[data-theme="dark"] { {{DARK}} color-scheme: dark; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="light"]) { {{DARK}} color-scheme: light; } }
+:root[data-theme="dark"] { {{DARK}} color-scheme: light; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
