@@ -9,7 +9,7 @@ hand-written page: the project notes stay the source of truth, and the page is r
 Scribble Relay's screenshots all come from ./test/run.sh, so run that first when the game changes.
 
     python3 tools/docs/build_docs.py
-    python3 tools/docs/build_docs.py --publish                # and put it on the website
+    python3 tools/docs/build_docs.py --publish                # and rebuild the local records site
 
 The page is published as a website at SITE below. `docs-site publish` collects every
 project's docs/index.html and deploys them together, so the link never changes and
@@ -46,7 +46,7 @@ KNOWLEDGE = pathlib.Path(os.environ.get(
 OUT = PROJECT / "docs" / "index.html"
 
 NAME = "Scribble Relay"
-SITE = "https://luqman-docs.netlify.app/scribble-relay/"   # the page on the documentation website
+SITE = pathlib.Path.home() / "Documents/dev/docs-site/scribble-relay/index.html"   # the built page on this machine
 
 # The picture at the top: (path from the project root, alt text).
 HERO = ("test/shots/desktop-5-draw.png",
