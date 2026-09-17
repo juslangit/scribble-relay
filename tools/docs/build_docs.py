@@ -9,11 +9,11 @@ hand-written page: the project notes stay the source of truth, and the page is r
 Scribble Relay's screenshots all come from ./test/run.sh, so run that first when the game changes.
 
     python3 tools/docs/build_docs.py
-    python3 tools/docs/build_docs.py --artifact <file.html>   # also a copy to publish
+    python3 tools/docs/build_docs.py --publish                # and put it on the website
 
-The published copy lives at ARTIFACT below. Publish the --artifact copy to that URL (the
-Artifact tool's `url`) so the link never changes; that copy drops the <html>/<head>/<body>
-wrapper, which the publisher adds itself.
+The page is published as a website at SITE below. `docs-site publish` collects every
+project's docs/index.html and deploys them together, so the link never changes and
+anyone can open it.
 
 Reads:
     ~/.claude/knowledge/projects/scribble-relay/*.md and log/*.md   (override: KNOWLEDGE=...)
@@ -46,7 +46,7 @@ KNOWLEDGE = pathlib.Path(os.environ.get(
 OUT = PROJECT / "docs" / "index.html"
 
 NAME = "Scribble Relay"
-ARTIFACT = "https://claude.ai/artifact/Frqzh9meQopf3gLtjWWeEY"   # the private link the --artifact copy is published to
+SITE = "https://luqman-docs.netlify.app/scribble-relay/"   # the page on the documentation website
 
 # The picture at the top: (path from the project root, alt text).
 HERO = ("test/shots/desktop-5-draw.png",
@@ -781,22 +781,14 @@ openTarget();
 """
 
 
-def publishable(document):
-    document = re.sub(r"^<!doctype html>\s*<html[^>]*>\s*<head>\s*", "", document, flags=re.I)
-    document = re.sub(r'<meta charset="utf-8">\s*<meta name="viewport"[^>]*>\s*', "", document)
-    document = re.sub(r"<!--mermaid-->.*?<!--/mermaid-->\n", "", document, flags=re.S)
-    return document.replace("</head>\n<body>\n", "", 1).replace("</body>\n</html>\n", "")
-
 
 if __name__ == "__main__":
     import sys
     OUT.parent.mkdir(exist_ok=True)
     document = page()
     OUT.write_text(document)
-    if "--artifact" in sys.argv:
-        target = pathlib.Path(sys.argv[sys.argv.index("--artifact") + 1])
-        target.write_text(publishable(document))
-        print(f"wrote {target} for publishing")
+    if "--publish" in sys.argv:
+        subprocess.run(["docs-site", "publish"], check=True)
     size = OUT.stat().st_size / 1024 / 1024
     print(f"wrote {OUT.relative_to(PROJECT)}  ({size:.1f} MB)")
     if missing:
