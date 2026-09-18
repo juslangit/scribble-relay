@@ -23,9 +23,19 @@ screen stays awake during a game.
 
 ## Tech
 
-One `index.html` file: HTML, CSS and JavaScript, with **no libraries and no
-server**. The only thing it loads is two Google Fonts, and it still works without
-them. Sound effects are generated in code, so there are no audio files.
+The game is plain HTML, CSS and JavaScript in `index.html`, with no server and no
+build step. Its screens, text boxes and drawing pad are ordinary web page parts,
+because that is what makes typing and finger-drawing feel right.
+
+On top of that sits an **effects layer** (`fx.js`), drawn by
+[Phaser](https://phaser.io) 4 on a see-through canvas over the page: confetti
+when the chain is finished and at the end of the reveal, stars in the next
+player's colour when a turn is handed over, a red flash when time runs out, and
+real sound effects from Kenney's free CC0 packs (`sounds.js`, rebuilt by
+`tools/build_sounds.py`). It never takes a tap, it is asleep and hidden while
+you draw or type, and if Phaser fails to load the game plays on with its
+original built-in beeps. Phaser is kept in `vendor/`, so nothing is fetched from
+the internet.
 
 Open `index.html` in a browser to play locally.
 
@@ -38,4 +48,8 @@ Open `index.html` in a browser to play locally.
 Plays a full 4-player game in headless Chrome at phone, phone-landscape, tablet
 and desktop sizes, drawing with real touch and mouse input. It checks turn order,
 undo, the timer auto-submitting, the reveal, the saved chain image, and that no
-screen scrolls sideways. Needs Node and Google Chrome.
+screen scrolls sideways. Then it checks the effects layer twice, once with
+Phaser's Canvas renderer and once with WebGL: that it never blocks a tap, stays
+asleep the whole time someone draws, goes back to sleep after every effect,
+honours the phone's reduce-motion setting, and that the game still plays with
+Phaser missing. Needs Node and Google Chrome.
