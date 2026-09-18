@@ -578,6 +578,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<!-- The effects layer: Phaser draws confetti, bursts and flashes on a
+     see-through canvas over the page, and plays the real sounds. The game
+     itself stays plain HTML -- see fx.js for why. -->
+<script src="vendor/phaser.min.js"></script>
+<script src="sounds.js"></script>
+<script src="fx.js"></script>
 <script>
 'use strict';
 
@@ -690,7 +696,13 @@ if (window.visualViewport) {
 addEventListener('resize', syncViewport);
 syncViewport();
 
-/* ---------- sound (made in code, no audio files) ---------- */
+/* ---------- effects and sound ----------
+   fx.js does the confetti, bursts and real sounds. If it never loaded, this
+   stand-in answers every call with "no", and the beeps below take over. */
+const fx = window.FX || { sound: () => false, burst() {}, confetti() {}, ring() {}, flash() {}, shake() {}, pop() {} };
+
+/* The beeps are made in code. They are the fallback: they cover the first tap,
+   before the browser lets a sound file play, and a browser where fx.js failed. */
 let audioCtx = null;
 function beep(freq, dur, type = 'triangle', vol = 0.12, delay = 0) {
   if (!game.sound) return;
@@ -710,7 +722,7 @@ function beep(freq, dur, type = 'triangle', vol = 0.12, delay = 0) {
     osc.stop(t + dur + 0.05);
   } catch { /* no audio available */ }
 }
-const sfx = {
+const beeps = {
   tap: () => beep(540, 0.06, 'triangle', 0.07),
   tick: () => beep(950, 0.06, 'square', 0.04),
   buzz: () => { beep(200, 0.35, 'sawtooth', 0.1); beep(150, 0.4, 'sawtooth', 0.08, 0.1); },
@@ -718,6 +730,10 @@ const sfx = {
   done: () => { beep(660, 0.1); beep(880, 0.16, 'triangle', 0.12, 0.09); },
   fanfare: () => [523, 659, 784, 1047].forEach((f, i) => beep(f, i === 3 ? 0.45 : 0.16, 'triangle', 0.12, i * 0.13)),
 };
+beeps.crown = beeps.finale = beeps.fanfare;
+// Each sound: the real one if fx.js can play it, otherwise its beep.
+const sfx = Object.fromEntries(Object.entries(beeps).map(([name, fallback]) =>
+  [name, () => { if (game.sound && !fx.sound(name)) fallback(); }]));
 const buzzPhone = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch { /* unsupported */ } };
 
 /* ---------- keep the screen awake during a game ---------- */
@@ -843,6 +859,12 @@ function showPass(timesUp) {
   clearTimeout(passGuard);
   passGuard = setTimeout(() => { go.disabled = false; }, t === 0 ? 300 : 1100);
   show('pass');
+
+  // The hand-over moment. Time running out gets a red flash and a shake;
+  // a turn handed in on time gets a spray of stars in the next player's colour.
+  fx.pop(avatar);
+  if (timesUp) { fx.flash('#e63946', 0.3); fx.shake(avatar, 12); }
+  else if (t > 0) fx.burst(avatar, { kind: 'star', color: avatarColor(p), count: 22 });
 }
 
 $('#pass-go').addEventListener('click', () => {
@@ -890,6 +912,7 @@ function submitTurn(value, late = false) {
     game.active = false;
     show('reveal-intro');
     sfx.fanfare();
+    fx.confetti();
   } else {
     showPass(late);
   }
@@ -923,7 +946,7 @@ function startTimer(screen, seconds, onEnd) {
     if (whole !== lastWhole) {
       lastWhole = whole;
       num.textContent = whole;
-      if (whole <= 5 && whole > 0) { box.classList.add('urgent'); sfx.tick(); buzzPhone(25); }
+      if (whole <= 5 && whole > 0) { box.classList.add('urgent'); sfx.tick(); buzzPhone(25); fx.ring(box, '#e63946'); }
     }
     if (left <= 0) { timerFrame = null; onEnd(); return; }
     timerFrame = requestAnimationFrame(tick);
@@ -1170,7 +1193,10 @@ function makeCard(i) {
   $('.crown', card).addEventListener('click', () => {
     game.crown = game.crown === i ? -1 : i;
     $$('#feed .card').forEach((c, j) => c.classList.toggle('crowned', j === game.crown));
-    if (game.crown === i) sfx.fanfare(); else sfx.tap();
+    if (game.crown === i) {
+      sfx.crown();
+      fx.burst($('.crown', card), { kind: 'star', color: '#ffd23f', count: 26 });
+    } else sfx.tap();
   });
   return card;
 }
@@ -1181,6 +1207,7 @@ function revealNext() {
   const card = makeCard(i);
   $('#feed').append(card);
   sfx.pop();
+  fx.pop(card);
   $('#reveal-count').textContent = `${game.revealed} / ${game.chain.length}`;
 
   const last = game.revealed === game.chain.length;
@@ -1197,12 +1224,14 @@ function revealNext() {
       fromTo.append('It started as ', Object.assign(document.createElement('em'), { textContent: `“${first}”` }));
     }
     $('#reveal-end').hidden = false;
-    setTimeout(sfx.fanfare, 250);
+    setTimeout(() => { sfx.finale(); fx.confetti({ count: 110 }); }, 250);
   }
   requestAnimationFrame(() => {
     const target = last ? $('#reveal-end') : card;
     target.scrollIntoView({ behavior: 'smooth', block: last ? 'end' : 'center' });
   });
+  // Once it has scrolled into place, a puff of sparks in the player's colour.
+  if (!last) setTimeout(() => fx.burst(card, { color: avatarColor(game.chain[i].player), count: 14 }), 420);
 }
 
 $('#reveal-next').addEventListener('click', revealNext);
