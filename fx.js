@@ -32,7 +32,9 @@
 
   const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const hex = (c) => typeof c === 'number' ? c : parseInt(String(c).replace('#', ''), 16);
-  const PARTY = [0xff5a5f, 0xffd23f, 0x43b649, 0x2a9df4, 0x9b5de5, 0xff85c0, 0xff8c1a];
+  // Confetti and default burst colours. A game can set its own palette by
+  // defining FX_PALETTE (an array of '#rrggbb') before this file loads.
+  const PARTY = (window.FX_PALETTE || ['#ff5a5f', '#ffd23f', '#43b649', '#2a9df4', '#9b5de5', '#ff85c0', '#ff8c1a']).map(hex);
 
   // How long the loop stays awake after the last thing started, at least.
   const LINGER_MS = 250;
